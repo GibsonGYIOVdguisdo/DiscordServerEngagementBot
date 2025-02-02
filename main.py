@@ -39,7 +39,7 @@ class BotBrain():
         self.save_message(formatted_message)
 
     def user_message(self, author, message):
-        message = f"{author}: {message}"
+        message = f"received message '{message}' from '{author}'"
         formatted_message = {"role": "user", "content":message}
         self.message_history.append(formatted_message)
         self.save_message(formatted_message)
@@ -58,6 +58,7 @@ print(bot_brain.get_message_history())
 
 class MyClient(discord.Client):
     async def on_ready(self):
+        starting_prompt.replace("[username]", self.user)
         print('Logged on as', self.user)
 
     async def on_message(self, message):
@@ -65,8 +66,9 @@ class MyClient(discord.Client):
         if message.author != self.user:
             if message.guild.id == GUILD_ID:
                 bot_brain.user_message(str(message.author), str(message.content))
-                bot_brain.generate_response(starting_prompt)
-                print(message.content)
+                response = bot_brain.generate_response(starting_prompt)
+                bot_brain.bot_message(response)
+                await message.channel.send(response)
             return
 
 client = MyClient()
