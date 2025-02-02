@@ -2,27 +2,36 @@ import discord
 import dotenv
 import os
 import ast
-
+from openai import OpenAI
 
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID")) 
 
 
-
 starting_prompt = ""
 with open("starting_prompt.txt") as prompt:
     starting_prompt = prompt.read()
-
 
 class BotBrain():
     def __init__(self, filename):
         self.filename = filename
         self.message_history = []
+        self.server = OpenAI(base_url="http://localhost:1234/v1", api_key="not-needed")
         with open(filename) as file:
             messages = file.readlines()
             for message in messages:
                 self.message_history.append(ast.literal_eval(message))
+
+    def generate_response(self, prompt):
+        formatted_prompt = {"role": "system", "content": prompt}
+        temp_cache = [formatted_prompt] + self.message_history
+        completion = self.server.chat.completions.create(
+            model="local-model",
+            messages=temp_cache,
+            temperature=0,
+        )
+        return completion.choices[0].message.content
 
     def bot_message(self, message):
         formatted_message = {"role": "assistant", "content": message}
@@ -47,8 +56,6 @@ class BotBrain():
 bot_brain = BotBrain("message_history.txt")
 print(bot_brain.get_message_history())
 
-message_cache = [{"role": "system", "content": starting_prompt}]
-
 class MyClient(discord.Client):
     async def on_ready(self):
         print('Logged on as', self.user)
@@ -58,6 +65,7 @@ class MyClient(discord.Client):
         if message.author != self.user:
             if message.guild.id == GUILD_ID:
                 bot_brain.user_message(str(message.author), str(message.content))
+                bot_brain.generate_response(starting_prompt)
                 print(message.content)
             return
 
