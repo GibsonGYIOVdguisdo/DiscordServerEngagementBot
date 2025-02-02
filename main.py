@@ -58,7 +58,8 @@ print(bot_brain.get_message_history())
 
 class MyClient(discord.Client):
     async def on_ready(self):
-        starting_prompt.replace("[username]", self.user)
+        global starting_prompt
+        starting_prompt = starting_prompt.replace("[username]", str(self.user)[:-2])
         print('Logged on as', self.user)
 
     async def on_message(self, message):
