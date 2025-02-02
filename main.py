@@ -7,6 +7,7 @@ from openai import OpenAI
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID")) 
+CHANNEL_ID = int(os.getenv("GUILD_ID")) 
 
 
 starting_prompt = ""
@@ -57,6 +58,9 @@ bot_brain = BotBrain("message_history.txt")
 print(bot_brain.get_message_history())
 
 class MyClient(discord.Client):
+    def __init__(self):
+        interaction_id = 0
+
     async def on_ready(self):
         global starting_prompt
         starting_prompt = starting_prompt.replace("[username]", str(self.user)[:-2])
@@ -65,7 +69,7 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         # only respond to ourselves
         if message.author != self.user:
-            if message.guild.id == GUILD_ID:
+            if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
                 bot_brain.user_message(str(message.author), str(message.content))
                 response = bot_brain.generate_response(starting_prompt)
                 bot_brain.bot_message(response)
