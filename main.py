@@ -12,8 +12,9 @@ GUILD_ID = int(os.getenv("GUILD_ID"))
 CHANNEL_ID = int(os.getenv("CHANNEL_ID")) 
 
 class BotBrain(discord.Client):
-    def __init__(self, filename, prompt):
+    def __init__(self, filename, prompt, typing_speed=70):
         super().__init__()
+        self.typing_speed = typing_speed
         self.interaction_id = 0
         self.filename = filename
         self.message_history = []
@@ -35,7 +36,7 @@ class BotBrain(discord.Client):
                 await asyncio.sleep(randint(600, 5000)/1000)
                 if self.interaction_id == current_id:
                     response = self.generate_response(starting_prompt)
-                    typing_speed = (5 * randint(70,80)) / 60
+                    typing_speed = BotBrain.calculate_typing_duration(self.typing_speed, response)
                     response_time = len(response) / typing_speed
                     await self.display_typing(message.channel, response_time)
                     if self.interaction_id == current_id:
@@ -47,6 +48,12 @@ class BotBrain(discord.Client):
     async def display_typing(self, channel, length):
         async with channel.typing():
             await asyncio.sleep(length)
+
+    @classmethod
+    def calculate_typing_duration(cls, wpm, message):
+        typing_speed = 5 * wpm / 60
+        response_time = len(message) / typing_speed
+        return response_time
 
     # AI Functionality
     def load_messages(self):
@@ -78,7 +85,6 @@ class BotBrain(discord.Client):
 
     def save_message(self, formatted_message):
         f = open(self.filename, "a")
-        print(self.message_history)
         f.write(f"{str(formatted_message)}\n")
         f.close()
 
