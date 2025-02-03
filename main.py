@@ -49,9 +49,8 @@ class BotBrain(discord.Client):
         async with channel.typing():
             await asyncio.sleep(length)
 
-    @classmethod
-    def calculate_typing_duration(cls, wpm, message):
-        typing_speed = 5 * wpm / 60
+    def calculate_typing_duration(self, message):
+        typing_speed = 5 * self.typing_speed / 60
         response_time = len(message) / typing_speed
         return response_time
 
