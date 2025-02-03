@@ -5,6 +5,7 @@ import ast
 from openai import OpenAI
 import asyncio
 from random import randint
+import time
 
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -12,9 +13,19 @@ GUILD_ID = int(os.getenv("GUILD_ID"))
 CHANNEL_ID = int(os.getenv("CHANNEL_ID")) 
 
 class BotBrain(discord.Client):
-    def __init__(self, filename, prompt, typing_speed=70):
+    def __init__(self, filename, prompt, typing_speed=70, focus_length = 30, refocus_time = 10, thinking_time=500):
         super().__init__()
+
+        self.last_channel = 0
+        self.last_message_time = 0
+
+        self.focus_length = focus_length
+        self.refocus_time = refocus_time
+
+        self.thinking_time = thinking_time
+
         self.typing_speed = typing_speed
+
         self.interaction_id = 0
         self.filename = filename
         self.message_history = []
@@ -33,21 +44,33 @@ class BotBrain(discord.Client):
                 self.interaction_id += 1
                 current_id = self.interaction_id
                 self.user_message(str(message.author), str(message.content))
-                await asyncio.sleep(randint(600, 5000)/1000)
+                await asyncio.sleep(self.calculate_response_wait(message.channel))
                 if self.interaction_id == current_id:
+                    self.focus_channel(message.channel)
                     response = self.generate_response(starting_prompt)
-                    typing_speed = self.calculate_typing_duration(self.typing_speed, response)
+                    typing_speed = self.calculate_typing_duration(response)
                     response_time = len(response) / typing_speed
                     await self.display_typing(message.channel, response_time)
                     if self.interaction_id == current_id:
                         self.bot_message(response)
                         await message.channel.send(response)
+                        self.focus_channel(message.channel)
             return
         
     # Discord Functionality
     async def display_typing(self, channel, length):
         async with channel.typing():
             await asyncio.sleep(length)
+
+    def calculate_response_wait(self, channel):
+        time_since_last_message = time.time() - self.last_message_time
+        if time_since_last_message > self.focus_length or channel.id != self.last_channel:
+            return self.refocus_time
+        return self.thinking_time / 1000
+
+    def focus_channel(self, channel):
+        self.last_channel = channel.id
+        self.last_message_time = time.time()
 
     def calculate_typing_duration(self, message):
         typing_speed = 5 * self.typing_speed / 60
