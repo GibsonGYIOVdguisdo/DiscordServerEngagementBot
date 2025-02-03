@@ -48,8 +48,7 @@ class BotBrain(discord.Client):
                 if self.interaction_id == current_id:
                     self.focus_channel(message.channel)
                     response = self.generate_response(starting_prompt)
-                    typing_speed = self.calculate_typing_duration(response)
-                    response_time = len(response) / typing_speed
+                    response_time = self.calculate_typing_duration(response)
                     await self.display_typing(message.channel, response_time)
                     if self.interaction_id == current_id:
                         self.bot_message(response)
