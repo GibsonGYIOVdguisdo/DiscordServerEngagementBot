@@ -36,7 +36,7 @@ class BotBrain(discord.Client):
                 await asyncio.sleep(randint(600, 5000)/1000)
                 if self.interaction_id == current_id:
                     response = self.generate_response(starting_prompt)
-                    typing_speed = BotBrain.calculate_typing_duration(self.typing_speed, response)
+                    typing_speed = self.calculate_typing_duration(self.typing_speed, response)
                     response_time = len(response) / typing_speed
                     await self.display_typing(message.channel, response_time)
                     if self.interaction_id == current_id:
