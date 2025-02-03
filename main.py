@@ -41,7 +41,7 @@ class BotBrain(discord.Client):
     async def on_message(self, message):
         if message.author != self.user:
             if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
-                message.content = message.content.encode('utf-8').decode('ascii', 'ignore')
+                message = BotBrain.parse_message(message)
                 if len(message.content) > 0:
                     self.interaction_id += 1
                     current_id = self.interaction_id
@@ -77,6 +77,16 @@ class BotBrain(discord.Client):
         typing_speed = 5 * self.typing_speed / 60
         response_time = len(message) / typing_speed
         return response_time
+
+    @classmethod
+    def parse_message(cls, message):
+        message.content = message.content.encode('utf-8').decode('ascii', 'ignore')
+        id_to_name = {}
+        for member in message.mentions:
+            id_to_name[member.id] = member.name
+        for member_id in id_to_name:
+            message.content = message.content.replace(str(member_id), id_to_name[member_id])
+        return message
 
     # AI Functionality
     def load_messages(self):
