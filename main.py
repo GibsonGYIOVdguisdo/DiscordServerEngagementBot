@@ -3,11 +3,13 @@ import dotenv
 import os
 import ast
 from openai import OpenAI
+import asyncio
+from random import randint
 
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID")) 
-CHANNEL_ID = int(os.getenv("GUILD_ID")) 
+CHANNEL_ID = int(os.getenv("CHANNEL_ID")) 
 
 
 starting_prompt = ""
@@ -54,13 +56,20 @@ class BotBrain():
     def get_message_history(self):
         return self.message_history
     
+
+
+
+
 bot_brain = BotBrain("message_history.txt")
 print(bot_brain.get_message_history())
 
-class MyClient(discord.Client):
-    def __init__(self):
-        interaction_id = 0
 
+async def display_typing(channel, length):
+    async with channel.typing():
+        await asyncio.sleep(length)
+
+interaction_id = 0
+class MyClient(discord.Client):
     async def on_ready(self):
         global starting_prompt
         starting_prompt = starting_prompt.replace("[username]", str(self.user)[:-2])
@@ -70,10 +79,19 @@ class MyClient(discord.Client):
         # only respond to ourselves
         if message.author != self.user:
             if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
+                global interaction_id
+                interaction_id += 1
+                current_id = interaction_id
                 bot_brain.user_message(str(message.author), str(message.content))
-                response = bot_brain.generate_response(starting_prompt)
-                bot_brain.bot_message(response)
-                await message.channel.send(response)
+                await asyncio.sleep(randint(600, 5000)/1000)
+                if interaction_id == current_id:
+                    response = bot_brain.generate_response(starting_prompt)
+                    typing_speed = (5 * randint(60,70)) / 60
+                    response_time = len(response) / typing_speed
+                    await display_typing(message.channel, response_time)
+                    if interaction_id == current_id:
+                        bot_brain.bot_message(response)
+                        await message.channel.send(response)
             return
 
 client = MyClient()
