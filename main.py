@@ -41,19 +41,21 @@ class BotBrain(discord.Client):
     async def on_message(self, message):
         if message.author != self.user:
             if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
-                self.interaction_id += 1
-                current_id = self.interaction_id
-                self.user_message(str(message.author), str(message.content))
-                await asyncio.sleep(self.calculate_response_wait(message.channel))
-                if self.interaction_id == current_id:
-                    self.focus_channel(message.channel)
-                    response = self.generate_response(starting_prompt)
-                    response_time = self.calculate_typing_duration(response)
-                    await self.display_typing(message.channel, response_time)
+                message.content = message.content.encode('utf-8').decode('ascii', 'ignore')
+                if len(message.content) > 0:
+                    self.interaction_id += 1
+                    current_id = self.interaction_id
+                    self.user_message(str(message.author), str(message.content))
+                    await asyncio.sleep(self.calculate_response_wait(message.channel))
                     if self.interaction_id == current_id:
-                        self.bot_message(response)
-                        await message.channel.send(response)
                         self.focus_channel(message.channel)
+                        response = self.generate_response(starting_prompt)
+                        response_time = self.calculate_typing_duration(response)
+                        await self.display_typing(message.channel, response_time)
+                        if self.interaction_id == current_id:
+                            self.bot_message(response)
+                            await message.channel.send(response)
+                            self.focus_channel(message.channel)
             return
         
     # Discord Functionality
