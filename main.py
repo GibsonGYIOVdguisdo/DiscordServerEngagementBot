@@ -11,17 +11,46 @@ TOKEN = os.getenv("TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID")) 
 CHANNEL_ID = int(os.getenv("CHANNEL_ID")) 
 
-
-starting_prompt = ""
-with open("starting_prompt.txt") as prompt:
-    starting_prompt = prompt.read()
-
-class BotBrain():
-    def __init__(self, filename):
+class BotBrain(discord.Client):
+    def __init__(self, filename, prompt):
+        super().__init__()
+        self.interaction_id = 0
         self.filename = filename
         self.message_history = []
+        self.prompt = prompt
         self.server = OpenAI(base_url="http://localhost:1234/v1", api_key="not-needed")
-        with open(filename) as file:
+        self.load_messages()
+
+    # Discord.py Events
+    async def on_ready(self):
+        self.prompt = self.prompt.replace("[username]", str(self.user)[:-2])
+        print('Logged on as', self.user)
+
+    async def on_message(self, message):
+        if message.author != self.user:
+            if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
+                self.interaction_id += 1
+                current_id = self.interaction_id
+                self.user_message(str(message.author), str(message.content))
+                await asyncio.sleep(randint(600, 5000)/1000)
+                if self.interaction_id == current_id:
+                    response = self.generate_response(starting_prompt)
+                    typing_speed = (5 * randint(70,80)) / 60
+                    response_time = len(response) / typing_speed
+                    await self.display_typing(message.channel, response_time)
+                    if self.interaction_id == current_id:
+                        self.bot_message(response)
+                        await message.channel.send(response)
+            return
+        
+    # Discord Functionality
+    async def display_typing(self, channel, length):
+        async with channel.typing():
+            await asyncio.sleep(length)
+
+    # AI Functionality
+    def load_messages(self):
+        with open(self.filename) as file:
             messages = file.readlines()
             for message in messages:
                 self.message_history.append(ast.literal_eval(message))
@@ -55,44 +84,10 @@ class BotBrain():
 
     def get_message_history(self):
         return self.message_history
-    
 
 
-
-
-bot_brain = BotBrain("message_history.txt")
-print(bot_brain.get_message_history())
-
-
-async def display_typing(channel, length):
-    async with channel.typing():
-        await asyncio.sleep(length)
-
-interaction_id = 0
-class MyClient(discord.Client):
-    async def on_ready(self):
-        global starting_prompt
-        starting_prompt = starting_prompt.replace("[username]", str(self.user)[:-2])
-        print('Logged on as', self.user)
-
-    async def on_message(self, message):
-        # only respond to ourselves
-        if message.author != self.user:
-            if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
-                global interaction_id
-                interaction_id += 1
-                current_id = interaction_id
-                bot_brain.user_message(str(message.author), str(message.content))
-                await asyncio.sleep(randint(600, 5000)/1000)
-                if interaction_id == current_id:
-                    response = bot_brain.generate_response(starting_prompt)
-                    typing_speed = (5 * randint(60,70)) / 60
-                    response_time = len(response) / typing_speed
-                    await display_typing(message.channel, response_time)
-                    if interaction_id == current_id:
-                        bot_brain.bot_message(response)
-                        await message.channel.send(response)
-            return
-
-client = MyClient()
+starting_prompt = ""
+with open("starting_prompt.txt") as prompt:
+    starting_prompt = prompt.read()
+client = BotBrain("message_history.txt", starting_prompt)
 client.run(TOKEN)
