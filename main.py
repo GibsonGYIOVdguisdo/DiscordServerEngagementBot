@@ -10,11 +10,15 @@ import time
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID")) 
-CHANNEL_ID = int(os.getenv("CHANNEL_ID")) 
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+WELCOME_BOT = int(os.getenv("WELCOME_BOT_ID"))
 
 class BotBrain(discord.Client):
-    def __init__(self, filename, prompt, typing_speed=70, focus_length = 30, refocus_time = 10, thinking_time=500):
+    def __init__(self, filename, prompt, typing_speed=70, focus_length = 30, refocus_time = 10, thinking_time=500, responds_to=set(), welcome_bot=0):
         super().__init__()
+        self.responds_to = responds_to
+
+        self.welcome_bot = welcome_bot
 
         self.last_channel = 0
         self.last_message_time = 0
@@ -41,21 +45,28 @@ class BotBrain(discord.Client):
     async def on_message(self, message):
         if message.author != self.user:
             if message.guild.id == GUILD_ID and message.channel.id == CHANNEL_ID:
-                message = BotBrain.parse_message(message)
-                if len(message.content) > 0:
-                    self.interaction_id += 1
-                    current_id = self.interaction_id
-                    self.user_message(str(message.author), str(message.content))
-                    await asyncio.sleep(self.calculate_response_wait(message.channel))
-                    if self.interaction_id == current_id:
-                        self.focus_channel(message.channel)
-                        response = self.generate_response(starting_prompt)
-                        response_time = self.calculate_typing_duration(response)
-                        await self.display_typing(message.channel, response_time)
+                if message.author.id == self.welcome_bot:
+                    welcomed = BotBrain.get_welcomed_user(message)
+                    self.add_to_respond_to(welcomed)
+                if message.author.id in self.responds_to:
+                    message = BotBrain.parse_message(message)
+                    if len(message.content) > 0:
+                        self.interaction_id += 1
+                        current_id = self.interaction_id
+                        self.user_message(str(message.author), str(message.content))
+                        await asyncio.sleep(self.calculate_response_wait(message.channel))
                         if self.interaction_id == current_id:
-                            self.bot_message(response)
-                            await message.channel.send(response)
                             self.focus_channel(message.channel)
+                            response = self.generate_response(starting_prompt)
+                            response_time = self.calculate_typing_duration(response)
+                            await self.display_typing(message.channel, response_time)
+                            if self.interaction_id == current_id:
+                                self.bot_message(response)
+                                await message.channel.send(response)
+                                self.focus_channel(message.channel)
+                if message.author.id == self.welcome_bot:
+                    await asyncio.sleep(120)
+                    self.remove_from_respond_to(welcomed)
             return
         
     # Discord Functionality
@@ -77,6 +88,16 @@ class BotBrain(discord.Client):
         typing_speed = 5 * self.typing_speed / 60
         response_time = len(message) / typing_speed
         return response_time
+
+    def add_to_respond_to(self, member_id):
+        self.responds_to.add(member_id)
+
+    def remove_from_respond_to(self, member_id):
+        self.remove(member_id)
+
+    @classmethod
+    def get_welcomed_user(self, message):
+        return message.raw_mentions[0]
 
     @classmethod
     def parse_message(cls, message):
@@ -125,8 +146,9 @@ class BotBrain(discord.Client):
         return self.message_history
 
 
+
 starting_prompt = ""
 with open("starting_prompt.txt") as prompt:
     starting_prompt = prompt.read()
-client = BotBrain("message_history.txt", starting_prompt)
+client = BotBrain("message_history.txt", starting_prompt, welcome_bot=WELCOME_BOT)
 client.run(TOKEN)
